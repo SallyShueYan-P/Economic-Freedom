@@ -1,0 +1,292 @@
+---
+title: "Capstone MA2405"
+author: "Sally Pang Shue Yan, Richard Reynard"
+date: '2023-05-16'
+output: html_document
+---
+
+# Import and read the data
+```{r}
+data <- read.csv("/Users/sallypang/Library/CloudStorage/OneDrive-JamesCookUniversity/MA2405 - Advanced Statistical Modelling/MA 2405 - Capstone/economic_freedom_index2019_data.csv")
+head(data) # view data
+dim(data) # display number of observations and variables 
+```
+
+# 2. Load relevant libraries
+```{r}
+library(readxl)
+library(dplyr)
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(scales)
+library(tidyr)
+library(DataExplorer)
+library(caTools)
+library(heatmaply)
+library(tidyverse)
+library(skimr)
+library(corrplot)
+library(plm)
+library(sandwich)
+library(lmtest)
+library(devtools)
+library(ggbiplot)
+library(pROC)
+```
+
+# Data Preparation & Transformation
+
+Prior to processing, it is a crucial stage that frequently entails reformatting data, correcting data, and integrating datasets to enhance data.
+
+## Data descriptions
+```{r}
+data_raw <- data[, 1:34]
+names(data_raw) <- c("CountryID", "CountryName", "Webname", "Region", "WorldRank", "RegionRank",
+                     "2019Score", "PropertyRights", "JudicalEffectiveness", "GovernmentIntegrity",
+                     "TaxBurden", "GovtSpending", "FiscalHealth", "BusinessFreedom", "LaborFreedom",
+                     "MonetaryFreedom", "TradeFreedom", "InvestmentFreedom", "FinancialFreedom",
+                     "TariffRate", "IncomeTaxRate", "CorporateTaxRate", "TaxBurdenOfGDP",
+                     "GovtExpenditureOfGDP", "Country", "Population(mil)", "GDPPPP(bil)",
+                     "GDPGrowthRate", "5YearGDPGrowthRate", "GDPPerCapita", "Unemployment",
+                     "Inflation", "FDI Inflow", "PublicDebtOfGDP")
+
+datadf <- data.frame(data_raw)
+
+Field <- c("CountryID", "CountryName", "Webname", "Region", "WorldRank", 
+           "RegionRank", "2019Score", "PropertyRights", "JudicalEffectiveness","GovernmentIntegrity",
+           "TaxBurden", "GovtSpending", "FiscalHealth", "BusinessFreedom", "LaborFreedom",
+           "MonetaryFreedom", "TradeFreedom", "InvestmentFreedom", "FinancialFreedom", "TariffRate", 
+           "IncomeTaxRate", "CorporateTaxRate", "TaxBurdenOfGDP", "GovtExpenditureOfGDP", "Country", 
+           "Population(mil)", "GDPPPP(bil)", "GDPGrowthRate", "5YearGDPGrowthRate", "GDPPerCapita", 
+           "Unemployment", "Inflation", "FDI Inflow", "PublicDebtOfGDP")
+
+Description <- c("Country number", "Country name", "Web name", "Country region", "Country's economic
+                 freedom ranking in the world", "Country's economic freedom ranking in the region",
+                 "Country's economic freedom ranking in the world in 2019", "Legal ownership of
+                 resources", "effectiveness of fair justice system", "Government's act of serving the 
+                 public", "Total tax revenue received as a percentage of GDP", "Total government
+                 spending in a fiscal year", "The ability to continue current service levels for the
+                 forseeable future without jeopardising the financial stability of the organization
+                 or suddenly increasing the price of government", "Overall indicator of the
+                 efficiency of government regulation of business", "Legal and regulatory framework of
+                 a country's labor market", "Price stability with an assessment of price controls",
+                 "The absence of tariff and non-tariff barriers that affect imports and exports of
+                 goods and services", "Regulatory restrictions that are imposed on investment", "The
+                 ability to have financial cushion to afford a certain lifestyle", "Tax imposed on
+                 imported goods and services", "Proportion of income paid as tax to the government",
+                 "Proportion of profit made by companies paid as tax to the government", "Proportion
+                 of tax to GDP", "Proportion of government spending to total GDP", "Country",
+                 "Country population in millions", "Country GDP adjusted for PPP in billions",
+                 "Year-on-year GDP growth rate", "GDP growth rate for the past 5 years",
+                 "GDP per person adjusted for PPP", "Unemployment rate", "Inflation rate", "Inflow of
+                 investment from abroad in millions", "Amount of debt owed as a proportion of GDP")
+
+VariableType <- c("Qualitative", "Qualitative", "Qualitative", "Qualitative", "Quantitative",
+                  "Quantitative", "Quantitative", "Quantitative", "Quantitative", "Quantitative",
+                  "Quantitative", "Quantitative", "Quantitative", "Quantitative", "Quantitative",
+                  "Quantitative", "Quantitative", "Quantitative", "Quantitative", "Quantitative",
+                  "Quantitative", "Quantitative", "Quantitative", "Quantitative", "Qualitative",
+                  "Quantitative", "Quantitative", "Quantitative", "Quantitative", "Quantitative",
+                  "Quantitative", "Quantitative", "Quantitative", "Quantitative")
+
+VariableMeasure <- c("Explanatory", "Explanatory", "Explanatory", "Explanatory", "Response",
+                     "Explanatory", "Explanatory", "Independent", "Explanatory", "Independent",
+                     "Explanatory", "Explanatory", "Independent", "Explanatory", "Explanatory",
+                     "Explanatory", "Independent", "Explanatory", "Explanatory", "Explanatory",
+                     "Explanatory", "Explanatory", "Independent", "Independent", "Explanatory",
+                     "Explanatory", "Explanatory  ", "Explanatory", "Explanatory", "Explanatory",
+                     "Explanatory", "Explanatory", "Explanatory", "Explanatory")
+
+FieldDefinitions <- data.frame(Field, VariableType, VariableMeasure, Description)
+```
+
+# All Variables
+```{r}
+FieldDefinitions %>% kable() %>% kable_styling()
+```
+
+# Dependent Variable
+```{r}
+FieldDefinitions %>% filter(VariableMeasure == "Response") %>% kable() %>% kable_styling()
+```
+
+# Independent Variable
+```{r}
+FieldDefinitions %>% filter(VariableMeasure == "Independent") %>% kable() %>% kable_styling()
+```
+
+# Objectives 
+
+The purpose of this study is to identify the independent variables that are influencing the economic freedom world ranking. 
+
+#### Ho: The independent variables do not affect the economic freedom world ranking.
+#### Ha: The independent variables does affect the economic freedom world ranking. 
+
+# Pre-process Data
+
+This process is to put raw data into a comprehensible format. Given that we cannot deal with raw data, it is also a crucial stage in data mining. Prior to using machine learning or data mining methods, the quality of the data should be evaluated.
+
+# Data cleaning
+```{r}
+# Clean the data by removing all the missing values
+data_new <- na.omit(data)
+
+# Display the dimension of the data after clean up process
+dim(data_new)
+plot_missing(data_new)
+```
+
+The plot's results demonstrate that the dataset contains no missing data.
+
+# Split dataset into the Training set and Test set
+
+Divide a dataset into train and test sets to see how effectively our machine learning model works.
+
+```{r}
+# Split the data into training and test set
+split <- sample.split(data_new, SplitRatio = 0.8)
+
+# Splitting the dataset into training and test set
+training_set <- subset(data_new, split == "TRUE")
+test_set <- subset(data_new, split == "FALSE")
+
+# Take only the required column from the whole dataset
+dataTfTrim <- data_new %>% select(World.Rank, Property.Rights, Government.Integrity, 
+                                  Trade.Freedom, Tax.Burden, Fiscal.Health, 
+                                  Gov.t.Expenditure...of.GDP)
+dataTfTrim$World.Rank = as.numeric(as.character(dataTfTrim$World.Rank))
+
+split_selected <- sample.split(dataTfTrim, SplitRatio = 0.8)
+training_set_selected <- subset(dataTfTrim, split == "TRUE")
+test_set_selected <- subset(dataTfTrim, split == "FALSE")
+```
+
+# Scale data 
+
+Scaling the data is one of the pre-processing steps used in machine learning algorithms on the data set, which makes it easier for the model to understand and learn about the problem.
+
+```{r}
+training_set.scale <- scale(training_set_selected)
+test_set.scale <- scale(test_set_selected)
+```
+
+# Exploratory Analysis
+
+This section helps to explore the dataset to understand the dataset before making any assumptions.
+
+## Heatmap of Correlation & Demdrogram 
+
+Heatmap with the Correlation and Dendrogram grouping of the allocation on many key metrics that an analyst uses to identify possible links between variables and comprehend the strength of these associations.
+
+```{r}
+dataCorTable <- cor(dataTfTrim)
+dataMatNorm <- as.matrix(normalize(dataCorTable))
+heatmap(cor(normalize(dataTfTrim)))
+```
+
+The heatmap displays the correlation for the selected variable in this dataset.
+
+The correlation for the seven factors used in this study is shown in the second heatmap. According to the intensity of the colors, the graphs clearly reveal that World.Rank has the highest correlation with TaxBurdenOfGDP(Tax.Burden) and GovtExpenditureOfGDP(Gov.t.Expenditure) and lower connection with FiscalHealth (Fiscal.Health), TradeFreedom(Trade.Freedom),GovernmentIntegrity(Government.Integrity), and PropertyRights(Property.Rights). 
+
+The dendrogram indicates that the variables TaxBurdenOfGDP(Tax.Burden) and WorldRank(World.Rank) is the most comparable but it fused later with the rest of the variables, it becomes clear that this variable is substantially distinct from the rest of the variables in terms of their relationships to and affectivity on world ranking.
+
+# Descriptive Analysis
+
+Using historical data, analytical modeling, data mining techniques, and machine learning, predictive analytics is a subset of new insights that forecasts probable outcomes.
+
+## 1. Principal component analyse (PCA)
+
+A type of unsupervised statistical learning is this algorithm. It offers data visualization, dimension reduction techniques, and, most importantly, it offers data pre-processing techniques before applying another methodology.
+
+```{r}
+pcaDf <- data_new %>% select(Country.Name, Region, World.Rank, Property.Rights, Government.Integrity, 
+                             Trade.Freedom, Tax.Burden, Fiscal.Health, 
+                             Gov.t.Expenditure...of.GDP)
+
+countries = names(pcaDf)
+countries
+
+lapply(pcaDf, mean, na.rm = TRUE)
+lapply(pcaDf, var, na.rm = TRUE)
+
+pca.new.table <- cor(pcaDf[3:9])
+head(pca.new.table)
+ecfreedom.pca <- prcomp(pcaDf[3:9], center = TRUE,scale. = TRUE)
+
+print(ecfreedom.pca)
+summary(ecfreedom.pca)
+
+ggbiplot(ecfreedom.pca, scale=0)
+```
+
+PC1 corresponds for 50.9% of total variance, whereas PC2 accounts for 18.7%, with a combined proportion of 69.6% within both PCA. Comparing with the output above, the initial loading vector shows almost identical weights for GovernmentIntegrity(Government.Integrity), PropertyRights(Property.Rights), TradeFreedom(Trade.Freedom) and FiscalHealth (Fiscal.Health) with much less weight for TaxBurdenOfGDP(Tax.Burden) and GovtExpenditureOfGDP(Gov.t.Expenditure).
+
+## 2. Logistic Regression
+
+Logistic regression predicts the values on one dependent variables from one or more independent variables. The value of one of those parameters is then predicted depending on the other using this relationship.
+
+
+```{r}
+# Convert World.Rank to binary variable
+threshold <- 50
+training_set_selected$World.Rank_binary <- ifelse(training_set_selected$World.Rank >= threshold, 1, 0)
+test_set_selected$World.Rank_binary <- ifelse(test_set_selected$World.Rank >= threshold, 1, 0)
+
+# Feature Scaling
+training_set_scaled <- as.data.frame(scale(training_set_selected))
+test_set_scaled <- as.data.frame(scale(test_set_selected))
+
+model <- glm(as.factor(World.Rank_binary) ~ ., data = training_set_scaled, family = binomial)
+
+pred <- predict(model, newdata = test_set_scaled, type = "response")
+
+pred_class <- ifelse(pred > 0.5, 1, 0) # Evaluate the model
+
+# Confusion Matrix
+confusion_matrix <- table(pred_class, test_set_selected$World.Rank_binary)
+print(confusion_matrix)
+
+# Accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+cat("Accuracy:", accuracy, "\n")
+
+# Precision, Recall, F1 Score
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+cat("Precision:", precision, "\n")
+cat("Recall:", recall, "\n")
+cat("F1 Score:", f1_score, "\n")
+
+# ROC Curve
+roc_obj <- roc(test_set_selected$World.Rank_binary, pred)
+plot(roc_obj, print.auc = TRUE, main = "Receiver Operating Characteristic (ROC) Curve")
+```
+
+The logistic regression model have return a result of a high accuracy. It does well in classifying the positive class, judging by its great recall, outstanding precision, and high F1 score.
+
+## 3. Multiple Linear Regression
+
+This method is a statistical approach that forecasts the result of a dependent variable using two or more independent variables. Using this method, we may calculate the model's variance as well as the proportional contributions of each independent variable to the overall variance.
+
+```{r}
+plot(pcaDf[3:9], col="blue", main="Matrix Scatterplot")
+
+lm.fit =lm(World.Rank~.,data= pcaDf[3:9])
+summary(lm.fit)
+hist(resid(lm.fit))
+```
+
+Based on the result the minimum value is on the left side of the 1st quartile and the median, we can conclude that the residuals are approximately normally distributed based on this test. From the coefficients, we can observe that the variable with the largest magnitude of coefficient is "Property.Rights" with an estimated coefficient of -1.36763. 
+
+
+# Conclusion
+
+By examining this result, we can see that the F-statistic gives a significant large value of 225.7 and a p-value of 2.2e-16, which is almost zero. Based on this finding, it is able to reject the null hypothesis while accepting the alternative hypothesis.
+
+#### Ho: The independent variables do not affect the economic freedom world ranking. (Reject)
+#### Ha: The independent variables does affect the economic freedom world ranking. 
+
+
